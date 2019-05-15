@@ -1,0 +1,373 @@
+Redis is a Key Value Datastore.
+Redis is used when our application needs speed or for better performance.
+In Redis Key is a String, and the value is a String, Integer or Collection.
+
+Redis Operation
+1. Put data into database.
+2. Get data out of the database.
+Here Retrieval/Get operation is done via key.
+
+** Redis stores data in-memory(RAM), so maximum size of the database is the amount of RAM we have.
+Redis has a option to add multiple servers to increase RAM size(horizontal scaling).
+
+Since in Redis data is stored in memory there is a risk of data loss.
+But Redis can operate in 2 modes.
+1. In this mode all data will be put in memory.
+2. In this mode data will be put into memory but after some delay this data will be written to disk(using this we can avoid data loss).
+But Redis doesn’t give Durability, means if the server crashes before data is written to disk then data is lost.
+
+Redis Use cases:
+
+Use Case1: Redis as a Cache.
+If we are reading some data from the database then we can put the same data in Redis so that if the next request needs same data it will retrieve from Redis instead of main database, which will eventually reduce the load on the main database. In this case since data is stored in the main database there is no risk of data loss.
+
+Use Case2: Redis for Speed.
+If there are large number of transactions that are writing to the database then what we can do is insert that into Redis and the data can be written to the database at a later point of time at slow pace, so that we can increase application performance but there is a potential loss of data for a small duration in the event of cache which is a trade off and needs to confirm on this trade off.
+
+Installation
+For linux:
+Download the zip file.
+Extract and go to the redis location and type “make”
+then execute src/redis-server for starting redis server
+src/redis-cli for starting client.
+
+
+Redis Operations for String Datatype.
+1. GET key
+
+2. SET key value [EX seconds] [PX milliseconds] [NX|XX]
+Here arguments present in [] are optional.
+
+EX - set the specified expire time in seconds.
+PX - set the specified expire time in milliseconds.
+NX - only set the key if it does not exist.
+XX - only set the key if it exist
+
+NX and XX are mutually Exclusive.
+
+Time Complexity for GET and SET is O(1).
+Here Commands are case insensitive 
+means SET is same as set
+
+MSET k1 v1 k2 v2
+MSET will set multiple key value pairs
+
+MGET k1 k2
+MGET returns multiple values.
+
+DEL k Delete a key value pair
+APPEND k v Append a value (it will append this new value to the existing value)
+STRLEN k Get the Length of the value.
+
+There is no relationship between the keys that are stored in redis.
+It is usual that key names are separated with colon(:)
+eg:
+user:31:name  David White
+user:31:age 21
+user:31.town NewYork
+Here 31 is an id that uniquely specifies a user in the system.
+
+
+Redis Operations for Integer Datatype.
+1. SET k v   sets a key value pair.
+2. GET k    Get a value.
+3. MSET k1 v1 k2 v2  sets multiple key value pairs.
+4. MGET k1 k2   Get multiple values.
+5. DEL k Delete a key value pair.
+6. INCR k Increment a value.
+7. DECR k Decrement a value.
+8. INCRBY k v Add to a value.
+9. DECRBY k v Subtract from a value.
+
+
+SET username "Leela Prasad"
+GET username
+
+SET username "Leela Prasad" EX 10
+
+SET username "Leela Prasad" XX
+SET username "Leela Prasad" NX
+
+MSET age 28 city Vijayawada
+MGET username age city
+
+SET deletekey shouldbedeleted
+DEL deletekey
+GET deletekey -> (nil)
+
+APPEND username " Jagu"
+STRLEN username
+
+SET user.239.name "Leela"
+
+INCR age
+DECR age
+
+INCRBY age 2
+DECRBY age 2
+
+
+Transactions in Redis
+MULTI
+SET user:1:name “David”
+SET user:1:age 21
+SET user:1:town “New York”
+EXEC or DISCARD
+
+
+MULTI
+SET user:1:name “David”
+INCR user:1:name
+SET user:1:town “New York”
+EXEC
+
+Transactions in Redis is completely different from RDBMS.
+suppose if 2 statement is failed (INCR user:1:name) then redis still proceeds with execution of 3 statement, as in Redis it will store all the commands in the queue and executes them one by one.
+where as in RDBMS it will execute all statements or None (Atomicity).
+
+MULTI
+SET user:1:name “David”
+INRC user:1:name
+SET user:1:town “New York”
+EXEC
+In the above example there is a syntax error in Statement2 here redis will discard execution of all statements.
+
+Lost Update:
+MULTI
+SET account:20:balance 0
+SET account:20:status CLOSED
+EXEC
+
+Before executing statement EXEC command if some one from some other terminal executed below statement
+INCR account:20:balance 200
+then the balance will 0 and status will be closed(we lost 200$) which will lead to inconsistency in the system.
+To avoid this we will use SELECT FOR UPDATE in RDBMS.
+
+In Redis to avoid this inconsistency we will use WATCH.
+here WATCH will watch a specific key, if there is any change happened to that key while executing the transaction(i.e., EXEC) then it will simply fail(means it will not execute any statement inside the transaction) the transaction.
+
+** when EXEC is command is executed then it will clear all the WATCH we have, so we need to set WATCH for every transaction.
+
+** Redis doesn’t have rollback
+
+Initial values
+SET account:20:balance 100
+SET account:20:status CREDIT
+
+WATCH account:20:balance
+MULTI
+SET account:20:balance 0
+SET account:20:status CLOSED
+EXEC
+
+Below command will execute before executing EXEC command in the above transaction.
+INCRBY account:20:balance 500
+
+
+Result:
+Transaction is failed so at the end
+GET account:20:balance -> "600"
+GET account:20:status -> "CREDIT"
+
+
+KEYS *
+will give list of keys in the Redis DB, we can use Regex to drill down to specific keys
+like KEYS user:*
+
+
+Collections
+1. Lists	Ordered: yes	Duplicates: yes
+2. Set	Ordered: No	Duplicates: No
+3. Sorted Set	Ordered: yes	Duplicates: No
+4. Hash	Ordered: No	Duplicates: yes(for values)
+
+List Operations
+LPUSH k v	Inserts at the left
+RPUSH k v	Inserts at the right
+LPOP k	Get and remove left item
+RPOP k	Get and remove right item
+LINDEX k i	Get item in position i
+LRANGE k i j	Get items in position i through to j
+
+
+*** In Redis List is implemented as Linked List(as a Queue).
+so the performance of 
+LPUSH O(1)
+RPUSH O(1)
+LRANGE O(S+E)
+S is offset for start element and E is the number of elements that is there in the range.
+
+
+Set Operations
+SADD k v Add to the set 
+SREM k v Remove from the set 
+SPOP k Get and remove a random item
+SMEMBERS k Get all the items
+SRANDOM k Get a random item
+SRANDMEMBER k Get a random item
+
+SADD colors green
+SADD colors red
+SADD colors brown
+SADD colors blue black orange
+
+SMEMBERS colors
+
+SREM colors orange
+
+SRANDMEMBER colors
+
+SPOP colors
+
+Comparision Set operators
+SDIFF k1 k2 Removes items in k2 from k1
+here all items from k2 are removed from k1 and this removal is for result set only not for the original sets
+original sets remains same after the operation
+
+k1 - 1,5,3,7,4
+k2 - 2,7,3,9
+result - 1,5,4
+
+
+SDIFFSTORE k k1 k2 Save as k for the SDIFF result
+this is same as SDIFF except that the result is stored in k
+after operation k will have 1,5,4
+
+SINTER - intersection
+SINTER k1 k2 returns common elements in sets k1 and k2
+result - 3,7
+
+SINTERSTORE k k1 k2 stores result of SINTER in k
+
+SUNION k1 k2 Add items of k1 and k2
+result - 1,2,3,4,5,7,9
+
+Since this is a set during adding duplicates will be removed
+SUNIONSTORE k k1 k2 stores result of SUNION in k
+
+
+
+Import data into Set from a text file
+If we want to import data into a set from a text file then we need follow a serialization pattern.
+
+to add element Shala Oscar to set1 variable i.e.,
+SADD set1 “Shala Oscar”
+below is the serialization format.
+
+*3
+$4
+SADD
+$4
+set1
+$11
+Shala Oscar
+
+
+*3  - numbers of terms
+$4  - length of first term (SADD)
+SADD - first term
+$4   - length of second term (set1) 
+set1 - second term
+$11 - length of third term (Shala Oscar) 
+Shala Oscar - third term
+
+
+cat ~/Desktop/NoSQL/redis/CompanyA.txt | ./redis-cli --pipe
+cat ~/Desktop/NoSQL/redis/CompanyB.txt | ./redis-cli --pipe
+
+SDIFFSTORE set1only set1 set2		43
+SDIFFSTORE set2only set2 set1		42
+SINTERSTORE commonset set1 set2		16
+SUNIONSTORE allsets set1 set2		101
+
+
+Sorted Set
+Sorted Set is similar to set except this set will be sorted based on the score.
+We have to provide this score value.
+Use cases will be priority queues.
+Skip List is the implementation of Sorted set.
+
+
+ZADD k s v Add v to set k with score s
+AREM k v Removes from the set
+
+ZINTERSTORE k k1 k2 all common elements in k1 and k2 are stored as k 
+ZUNIONSTORE k k1 k2 all elements in k1 and k2 are stored as k(since this is a set any duplicates will be removed during union operation).
+
+ZRANGE k i1 i2 Get all items from position i1 to i2 in ascending order
+ZREVRANGE k i1 i2 Get all items from position i1 to i2 in descending order
+
+ZRANGE k i1 i2 WITHSCORES same as ZRANGE but it will return with scores.
+
+
+ZADD testset 23 Rudy
+ZADD testset 92 Marcel
+ZADD testset 18.5 Andrea
+ZADD testset 55 Brit
+ZADD testset 55 Julie
+
+ZRANGE testset 0 2
+ZRANGE testset 0 -1
+
+ZRANGE testset 0 -1 WITHSCORES
+ZREVRANGE testset 0 -1 WITHSCORES
+
+
+Hashes:
+HSET k f v Add a field value pair
+HMSET k f1 v1 f2 v2 Add multiple field value pairs
+HDEL k f Removes a field value pair
+HGET k f Retrieves a value
+HMGET k f1 f2 Retrieves multiple values
+HGETALL k Retrieves all fields and values
+HKEYS k Retrieves all the keys
+HVALS k Retrieves all the values
+HLEN k Finds how many field value pairs present in the hash 
+
+
+HSET rainbow 1 Red
+HMSET rainbow 2 Orange 3 Yellow 4 Green 5 Blue 6 Indigo 7 Violet
+
+HGETALL rainbow
+HGET rainbow 4
+HMGET rainbow 4 5
+
+HKEYS rainbow
+HVALS rainbow
+
+HLEN rainbow
+
+
+EXISTS k will check whether key exists in the memory or not
+HEXISTS k will check whether field for a key exist in memory or not
+
+EXPIRE key seconds
+will set expire for a key
+
+Expiry for a key can be cleared only when it is removed using del command or overwritten with set commands
+
+in case of hashes we can call expire method to set a new value.
+
+
+
+
+SQL Databases are good at ACID
+A - Atomicity
+it we have a group of statements in a transaction then it will execute all statements or neither of the statements will be executed.
+C - Consistent
+If you commit any thing then the subsequent reads will see the updated data no matter if server crashes after the commit.
+I - Isolation
+Transactions will happen in isolation
+another transactions will not interfere with current transaction
+D - Durability
+when a transaction commits it will be written to the disk any crash/restart will not loose committed data.
+
+
+In Mongo there are no transactions this is by design to achieve horizontal scaling and performance.
+In Mongo Writing a single document is atomic, this is achieved by using locks on the database.
+Durability in mongo is by default not gauranteed as it will write documents to the disk after a specific delay, but we can tweak to this to set to Journal so that it will write to journal and durability is achieved.
+
+
+Regis transactions are not atomic as we see if one statement is failed it will not rollback and it will continue with other statements.
+Isolation is there with the help of WATCH command
+Durable 
